@@ -21,7 +21,10 @@ exports.register = (req, res) => {
 exports.login = (req, res, next) => {
   passport.authenticate("local", (err, user, info) => {
     if (err) return next(err);
-    if (!user) return res.status(401).json({ message: info.message });
+    if (!user)
+      return res
+        .status(401)
+        .json({ message: "Usuário ou Senha estão incorretas!" });
     req.logIn(user, function (err) {
       if (err) return next(err);
       const token = jwt.sign(
