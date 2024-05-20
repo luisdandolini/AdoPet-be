@@ -30,6 +30,8 @@ exports.register = (req, res) => {
   ) {
     return res.status(400).send("Todos os campos são obrigatórios.");
   }
+  const [day, month, year] = birthdate.split("/");
+  const formattedDate = `${year}-${month}-${day}`;
   const salt = bcrypt.genSaltSync(10);
   const hash = bcrypt.hashSync(password, salt);
 
@@ -40,7 +42,7 @@ exports.register = (req, res) => {
       hash,
       email,
       phone,
-      birthdate,
+      formattedDate,
       cep,
       state,
       city,
