@@ -4,13 +4,49 @@ const jwt = require("jsonwebtoken");
 const passport = require("passport");
 
 exports.register = (req, res) => {
-  const { username, password } = req.body;
+  const {
+    username,
+    password,
+    email,
+    phone,
+    birthdate,
+    cep,
+    state,
+    city,
+    neighborhood,
+    street,
+  } = req.body;
+  if (
+    !username ||
+    !password ||
+    !email ||
+    !phone ||
+    !birthdate ||
+    !cep ||
+    !state ||
+    !city ||
+    !neighborhood ||
+    !street
+  ) {
+    return res.status(400).send("Todos os campos são obrigatórios.");
+  }
   const salt = bcrypt.genSaltSync(10);
   const hash = bcrypt.hashSync(password, salt);
 
   pool.query(
-    "INSERT INTO usuarios (username, password) VALUES (?, ?)",
-    [username, hash],
+    "INSERT INTO usuarios (username, password, email, phone, birthdate, cep, state, city, neighborhood, street) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    [
+      username,
+      hash,
+      email,
+      phone,
+      birthdate,
+      cep,
+      state,
+      city,
+      neighborhood,
+      street,
+    ],
     (err, results) => {
       if (err) throw err;
       res.send("User registered!");
