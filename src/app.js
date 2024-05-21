@@ -5,6 +5,8 @@ const passport = require("passport");
 const bodyParser = require("body-parser");
 const userRoutes = require("./routes/userRoutes");
 const cors = require("cors");
+const swagger = require("swagger-ui-express");
+const swaggerDocument = require("./swagger.json");
 
 const app = express();
 
@@ -23,6 +25,8 @@ app.use(
     credentials: true,
   })
 );
+
+app.use("/api-docs", swagger.serve, swagger.setup(swaggerDocument));
 
 app.use("/api/users", userRoutes);
 
