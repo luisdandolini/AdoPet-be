@@ -7,7 +7,6 @@ import userRoutes from "./routes/userRoutes";
 import cors from "cors";
 import swaggerUi from "swagger-ui-express";
 import swaggerDocument from "./swagger.json";
-import initializePassport from "./config/passport"; // Ajuste aqui
 
 const app = express();
 
@@ -17,6 +16,7 @@ app.use(
   session({ secret: "supersecret", resave: false, saveUninitialized: true })
 );
 
+import initializePassport from "./database/passport";
 initializePassport(passport);
 
 app.use(passport.initialize());
@@ -30,6 +30,7 @@ app.use(
 );
 
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+
 app.use("/api/users", userRoutes);
 
 export default app;

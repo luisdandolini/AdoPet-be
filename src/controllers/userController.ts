@@ -1,12 +1,13 @@
 import { Request, Response, NextFunction } from "express";
-import pool from "../config/database";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import passport from "passport";
 import crypto from "crypto";
 import nodemailer from "nodemailer";
+import { Op } from "sequelize";
+import User from "../models/User";
 
-export const register = (req: Request, res: Response) => {
+export const register = async (req: Request, res: Response) => {
   const {
     username,
     password,
@@ -35,30 +36,37 @@ export const register = (req: Request, res: Response) => {
     return res.status(400).send("Todos os campos são obrigatórios.");
   }
 
-  const [day, month, year] = birthdate.split("/");
-  const formattedDate = `${year}-${month}-${day}`;
-  const salt = bcrypt.genSaltSync(10);
-  const hash = bcrypt.hashSync(password, salt);
+  try {
+    const existingUser = await User.findOne({
+      where: { [Op.or]: [{ username }, { email }] },
+    });
+    if (existingUser) {
+      return res.status(400).send("Nome de usuário ou email já está em uso.");
+    }
 
-  pool.query(
-    "INSERT INTO usuarios (username, password, email, phone, birthdate, cep, state, city, neighborhood, street) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-    [
+    const [day, month, year] = birthdate.split("/");
+    const formattedDate = `${year}-${month}-${day}`;
+    const salt = bcrypt.genSaltSync(10);
+    const hash = bcrypt.hashSync(password, salt);
+
+    await User.create({
       username,
-      hash,
+      password: hash,
       email,
       phone,
-      formattedDate,
+      birthdate: formattedDate,
       cep,
       state,
       city,
       neighborhood,
       street,
-    ],
-    (err, results) => {
-      if (err) throw err;
-      res.send("User registered!");
-    }
-  );
+    });
+
+    res.send("User registered!");
+  } catch (err) {
+    console.error("Erro ao registrar o usuário:", err);
+    res.status(500).send("Erro ao registrar o usuário.");
+  }
 };
 
 export const login = (req: Request, res: Response, next: NextFunction) => {
@@ -82,101 +90,102 @@ export const login = (req: Request, res: Response, next: NextFunction) => {
   })(req, res, next);
 };
 
-export const forgotPassword = (req: Request, res: Response) => {
+export const forgotPassword = async (req: Request, res: Response) => {
   const { email } = req.body;
   if (!email) return res.status(400).send("Email é obrigatório.");
 
-  pool.query(
-    "SELECT * FROM usuarios WHERE email = ?",
-    [email],
-    (err, results) => {
-      if (err) throw err;
-      if (!results[0]) return res.status(404).send("Email não encontrado.");
+  try {
+    const user = await User.findOne({ where: { email } });
 
-      const token = crypto.randomBytes(20).toString("hex");
-      const expireTime = new Date(Date.now() + 3600000);
+    if (!user) return res.status(404).send("Email não encontrado.");
 
-      pool.query(
-        "UPDATE usuarios SET reset_password_token = ?, reset_password_expires = ? WHERE email = ?",
-        [token, expireTime, email],
-        (err, results) => {
-          if (err) throw err;
+    const token = crypto.randomBytes(20).toString("hex");
+    const expireTime = new Date(Date.now() + 3600000);
 
-          const transporter = nodemailer.createTransport({
-            host: process.env.SMTP_HOST,
-            port: parseInt(process.env.SMTP_PORT as string, 10),
-            auth: {
-              user: process.env.SMTP_USER,
-              pass: process.env.SMTP_PASS,
-            },
-          });
+    await User.update(
+      { reset_password_token: token, reset_password_expires: expireTime },
+      { where: { email } }
+    );
 
-          transporter.verify((error, success) => {
-            if (error) {
-              console.error(
-                "Erro ao verificar a conexão com o servidor de email:",
-                error
-              );
-              return res
-                .status(500)
-                .send("Erro ao verificar a conexão com o servidor de email.");
-            } else {
-              console.log(
-                "Servidor de email está pronto para enviar mensagens"
-              );
-            }
-          });
+    const transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: parseInt(process.env.SMTP_PORT as string, 10),
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+      },
+    });
 
-          const mailOptions = {
-            to: email,
-            from: process.env.SMTP_USER,
-            subject: "Password Reset",
-            text:
-              `Você está recebendo este e-mail porque você (ou alguém) solicitou a redefinição da senha para sua conta.\n\n` +
-              `Por favor, clique no seguinte link ou cole-o no seu navegador para completar o processo dentro de uma hora da recepção deste e-mail:\n\n` +
-              `http://${req.headers.host}/reset/${token}\n\n` +
-              `Se você não solicitou isso, por favor ignore este e-mail e sua senha permanecerá inalterada.\n`,
-          };
+    transporter.verify((error, success) => {
+      if (error) {
+        console.error(
+          "Erro ao verificar a conexão com o servidor de email:",
+          error
+        );
+        return res
+          .status(500)
+          .send("Erro ao verificar a conexão com o servidor de email.");
+      } else {
+        console.log("Servidor de email está pronto para enviar mensagens");
+      }
+    });
 
-          transporter.sendMail(mailOptions, (err, info) => {
-            if (err) {
-              console.error("Erro ao enviar o e-mail:", err);
-              return res.status(500).send("Erro ao enviar o e-mail.");
-            }
-            console.log("Email enviado:", info.response);
-            res.send("Email enviado com sucesso!");
-          });
-        }
-      );
-    }
-  );
+    const mailOptions = {
+      to: email,
+      from: process.env.SMTP_USER,
+      subject: "Password Reset",
+      text:
+        `Você está recebendo este e-mail porque você (ou alguém) solicitou a redefinição da senha para sua conta.\n\n` +
+        `Por favor, clique no seguinte link ou cole-o no seu navegador para completar o processo dentro de uma hora da recepção deste e-mail:\n\n` +
+        `http://${req.headers.host}/reset/${token}\n\n` +
+        `Se você não solicitou isso, por favor ignore este e-mail e sua senha permanecerá inalterada.\n`,
+    };
+
+    transporter.sendMail(mailOptions, (err, info) => {
+      if (err) {
+        console.error("Erro ao enviar o e-mail:", err);
+        return res.status(500).send("Erro ao enviar o e-mail.");
+      }
+      console.log("Email enviado:", info.response);
+      res.send("Email enviado com sucesso!");
+    });
+  } catch (err) {
+    res.status(500).send("Erro ao processar a solicitação.");
+  }
 };
 
-export const resetPassword = (req: Request, res: Response) => {
+export const resetPassword = async (req: Request, res: Response) => {
   const { token } = req.params;
   const { password } = req.body;
 
   if (!password) return res.status(400).send("Senha é obrigatória.");
 
-  pool.query(
-    "SELECT * FROM usuarios WHERE reset_password_token = ? AND reset_password_expires > NOW()",
-    [token],
-    (err, results) => {
-      if (err) throw err;
-      if (!results[0])
-        return res.status(400).send("Token inválido ou expirado.");
+  try {
+    const user = await User.findOne({
+      where: {
+        reset_password_token: token,
+        reset_password_expires: {
+          [Op.gt]: new Date(),
+        },
+      },
+    });
 
-      const salt = bcrypt.genSaltSync(10);
-      const hash = bcrypt.hashSync(password, salt);
+    if (!user) return res.status(400).send("Token inválido ou expirado.");
 
-      pool.query(
-        "UPDATE usuarios SET password = ?, reset_password_token = NULL, reset_password_expires = NULL WHERE id = ?",
-        [hash, results[0].id],
-        (err) => {
-          if (err) throw err;
-          res.send("Senha redefinida com sucesso!");
-        }
-      );
-    }
-  );
+    const salt = bcrypt.genSaltSync(10);
+    const hash = bcrypt.hashSync(password, salt);
+
+    await User.update(
+      {
+        password: hash,
+        reset_password_token: null,
+        reset_password_expires: null,
+      },
+      { where: { id: user.id } }
+    );
+
+    res.send("Senha redefinida com sucesso!");
+  } catch (err) {
+    res.status(500).send("Erro ao processar a solicitação.");
+  }
 };
