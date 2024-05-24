@@ -4,6 +4,7 @@ import session from "express-session";
 import passport from "passport";
 import bodyParser from "body-parser";
 import userRoutes from "./routes/userRoutes";
+import petRoutes from "./routes/petRoutes";
 import cors from "cors";
 import swaggerUi from "swagger-ui-express";
 import swaggerDocument from "./swagger.json";
@@ -32,5 +33,6 @@ app.use(
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 app.use("/api/users", userRoutes);
+app.use("/api/pets", petRoutes);
 
 export default app;
