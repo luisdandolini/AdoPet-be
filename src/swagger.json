@@ -15,6 +15,7 @@
     "/register": {
       "post": {
         "summary": "Register users",
+        "tags": ["users"],
         "responses": {
           "200": {
             "description": "Users registered successfully",
@@ -35,6 +36,7 @@
     "/login": {
       "post": {
         "summary": "Login users",
+        "tags": ["users"],
         "responses": {
           "200": {
             "description": "Users logged in successfully",
@@ -55,6 +57,7 @@
     "/forgot-password": {
       "post": {
         "summary": "Forgot password",
+        "tags": ["users"],
         "responses": {
           "200": {
             "description": "Password recovery email sent successfully",
@@ -75,6 +78,7 @@
     "/reset/:token": {
       "post": {
         "summary": "Reset password",
+        "tags": ["users"],
         "responses": {
           "200": {
             "description": "Password recovery email sent successfully",
@@ -84,6 +88,27 @@
                   "type": "array",
                   "items": {
                     "$ref": "#/components/schemas/ResetPassword"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/register-pet": {
+      "post": {
+        "summary": "Register new Pet",
+        "tags": ["pets"],
+        "responses": {
+          "200": {
+            "description": "Pet registered successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RegisterPet"
                   }
                 }
               }
@@ -172,6 +197,39 @@
           "password": {
             "type": "string",
             "example": "123456"
+          }
+        }
+      },
+      "RegisterPet": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "example": "Cachorro"
+          },
+          "race": {
+            "type": "string",
+            "example": "Labrador"
+          },
+          "name": {
+            "type": "string",
+            "example": "Buddy"
+          },
+          "weight": {
+            "type": "integer",
+            "example": 30
+          },
+          "size": {
+            "type": "string",
+            "example": "Grande"
+          },
+          "age": {
+            "type": "integer",
+            "example": 5
+          },
+          "adopted_at": {
+            "type": "string",
+            "example": "24/05/2023"
           }
         }
       }
