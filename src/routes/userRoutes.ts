@@ -4,6 +4,7 @@ import {
   login,
   forgotPassword,
   resetPassword,
+  activateAccount,
 } from "../controllers/userController";
 import auth from "../middleware/auth";
 
@@ -13,6 +14,8 @@ router.post("/register", register);
 router.post("/login", login);
 router.post("/forgot-password", forgotPassword);
 router.post("/reset/:token", resetPassword);
+router.get("/activate/:token", activateAccount);
+
 router.get("/protected", auth, (req, res) => {
   res.json({ message: "This is a protected route", userId: req.user });
 });

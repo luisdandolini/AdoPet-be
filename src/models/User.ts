@@ -22,6 +22,7 @@ class User extends Model {
   public updated_at!: Date;
   public deleted_at!: Date | null;
   public status!: string;
+  public activationToken!: string | null;
 }
 
 User.init(
@@ -113,6 +114,10 @@ User.init(
       type: DataTypes.STRING,
       allowNull: false,
       defaultValue: "ACTIVE",
+    },
+    activationToken: {
+      type: DataTypes.STRING,
+      allowNull: true,
     },
   },
   {

@@ -6,6 +6,7 @@ import crypto from "crypto";
 import nodemailer from "nodemailer";
 import { Op } from "sequelize";
 import User from "../models/User";
+import { sendConfirmationEmail } from "../services/emailService";
 
 export const register = async (req: Request, res: Response) => {
   const {
@@ -48,6 +49,7 @@ export const register = async (req: Request, res: Response) => {
     const formattedDate = `${year}-${month}-${day}`;
     const salt = bcrypt.genSaltSync(10);
     const hash = bcrypt.hashSync(password, salt);
+    const confirmationToken = crypto.randomBytes(20).toString("hex");
 
     await User.create({
       username,
@@ -60,9 +62,19 @@ export const register = async (req: Request, res: Response) => {
       city,
       neighborhood,
       street,
+      activationToken: confirmationToken,
+      status: "pending",
     });
 
-    res.send("User registered!");
+    await sendConfirmationEmail(
+      email,
+      confirmationToken,
+      req.headers.host || "default_host"
+    );
+
+    res.send(
+      "Registro iniciado! Verifique seu e-mail para confirmar o cadastro."
+    );
   } catch (err) {
     console.error("Erro ao registrar o usuário:", err);
     res.status(500).send("Erro ao registrar o usuário.");
@@ -72,18 +84,25 @@ export const register = async (req: Request, res: Response) => {
 export const login = (req: Request, res: Response, next: NextFunction) => {
   passport.authenticate("local", (err: any, user: any, info: any) => {
     if (err) return next(err);
-    if (!user)
+    if (!user) {
       return res
         .status(401)
         .json({ message: "Usuário ou Senha estão incorretas!" });
+    }
+
+    if (user.status !== "active") {
+      return res.status(403).json({
+        message:
+          "Conta não ativada. Por favor, verifique seu e-mail para ativar sua conta.",
+      });
+    }
+
     req.logIn(user, function (err) {
       if (err) return next(err);
       const token = jwt.sign(
         { id: user.id, username: user.username },
         process.env.JWT_SECRET as string,
-        {
-          expiresIn: "1h",
-        }
+        { expiresIn: "1h" }
       );
       return res.json({ message: "Logged in successfully!", token: token });
     });
@@ -187,5 +206,31 @@ export const resetPassword = async (req: Request, res: Response) => {
     res.send("Senha redefinida com sucesso!");
   } catch (err) {
     res.status(500).send("Erro ao processar a solicitação.");
+  }
+};
+
+export const activateAccount = async (req: Request, res: Response) => {
+  const { token } = req.params;
+
+  try {
+    const user = await User.findOne({
+      where: {
+        activationToken: token,
+      },
+    });
+
+    if (!user) {
+      return res.status(400).send("Token inválido ou expirado.");
+    }
+
+    await User.update(
+      { status: "active", activationToken: null },
+      { where: { id: user.id } }
+    );
+
+    res.send({ message: "Conta ativada com sucesso!" });
+  } catch (err) {
+    console.error("Erro ao ativar conta:", err);
+    res.status(500).send("Erro ao ativar conta.");
   }
 };
